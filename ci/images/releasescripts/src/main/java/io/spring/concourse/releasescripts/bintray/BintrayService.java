@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2019 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ public class BintrayService {
 		}, Objects::nonNull);
 		RequestEntity<Void> publishedFilesRequest = getRequest(releaseInfo, 0);
 		try {
-			waitAtMost(40, TimeUnit.MINUTES).with().pollDelay(20, TimeUnit.SECONDS).until(() -> {
+			waitAtMost(120, TimeUnit.MINUTES).with().pollDelay(20, TimeUnit.SECONDS).until(() -> {
 				Object[] publishedFiles = this.restTemplate.exchange(publishedFilesRequest, Object[].class).getBody();
 				return allFiles.length == publishedFiles.length;
 			});

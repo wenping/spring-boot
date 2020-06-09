@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.boot.context.properties.source.ConfigurationPropertyName.Form;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -207,6 +208,18 @@ class ConfigurationPropertyNameTests {
 		ConfigurationPropertyName name = ConfigurationPropertyName.of("");
 		assertThat(name.toString()).isEqualTo("");
 		assertThat(name.append("foo").toString()).isEqualTo("foo");
+	}
+
+	@Test
+	void ofIfValidWhenNameIsValidReturnsName() {
+		ConfigurationPropertyName name = ConfigurationPropertyName.ofIfValid("spring.bo-ot");
+		assertThat(name).hasToString("spring.bo-ot");
+	}
+
+	@Test
+	void ofIfValidWhenNameIsNotValidReturnsNull() {
+		ConfigurationPropertyName name = ConfigurationPropertyName.ofIfValid("spring.bo!oot");
+		assertThat(name).isNull();
 	}
 
 	@Test
@@ -414,6 +427,26 @@ class ConfigurationPropertyNameTests {
 	}
 
 	@Test
+	void getParentShouldReturnParent() {
+		ConfigurationPropertyName name = ConfigurationPropertyName.of("this.is.a.multipart.name");
+		ConfigurationPropertyName p1 = name.getParent();
+		ConfigurationPropertyName p2 = p1.getParent();
+		ConfigurationPropertyName p3 = p2.getParent();
+		ConfigurationPropertyName p4 = p3.getParent();
+		ConfigurationPropertyName p5 = p4.getParent();
+		assertThat(p1).hasToString("this.is.a.multipart");
+		assertThat(p2).hasToString("this.is.a");
+		assertThat(p3).hasToString("this.is");
+		assertThat(p4).hasToString("this");
+		assertThat(p5).isEqualTo(ConfigurationPropertyName.EMPTY);
+	}
+
+	@Test
+	void getParentWhenEmptyShouldReturnEmpty() {
+		assertThat(ConfigurationPropertyName.EMPTY.getParent()).isEqualTo(ConfigurationPropertyName.EMPTY);
+	}
+
+	@Test
 	void chopWhenLessThenSizeShouldReturnChopped() {
 		ConfigurationPropertyName name = ConfigurationPropertyName.of("foo.bar.baz");
 		assertThat(name.chop(1).toString()).isEqualTo("foo");
@@ -567,6 +600,15 @@ class ConfigurationPropertyNameTests {
 	}
 
 	@Test
+	void equalsAndHashCodeAfterOperations() {
+		ConfigurationPropertyName n1 = ConfigurationPropertyName.of("nested");
+		ConfigurationPropertyName n2 = ConfigurationPropertyName.EMPTY.append("nested");
+		ConfigurationPropertyName n3 = ConfigurationPropertyName.of("nested.value").getParent();
+		assertThat(n1.hashCode()).isEqualTo(n2.hashCode()).isEqualTo(n3.hashCode());
+		assertThat(n1).isEqualTo(n2).isEqualTo(n3);
+	}
+
+	@Test
 	void equalsWhenStartsWith() {
 		// gh-14665
 		ConfigurationPropertyName n1 = ConfigurationPropertyName.of("my.sources[0].xame");
@@ -617,6 +659,14 @@ class ConfigurationPropertyNameTests {
 		assertThat(ConfigurationPropertyName.isValid("-foo")).isFalse();
 		assertThat(ConfigurationPropertyName.isValid("FooBar")).isFalse();
 		assertThat(ConfigurationPropertyName.isValid("foo!bar")).isFalse();
+	}
+
+	@Test
+	void hashCodeIsStored() {
+		ConfigurationPropertyName name = ConfigurationPropertyName.of("hash.code");
+		int hashCode = name.hashCode();
+		// hasFieldOrPropertyWithValue would lookup for `hashCode()`.
+		assertThat(ReflectionTestUtils.getField(name, "hashCode")).isEqualTo(hashCode);
 	}
 
 }

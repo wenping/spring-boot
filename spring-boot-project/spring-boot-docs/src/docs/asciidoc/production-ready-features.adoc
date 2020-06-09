@@ -755,13 +755,19 @@ To configure the severity order, add the following property to your application 
 	management.endpoint.health.status.order=fatal,down,out-of-service,unknown,up
 ----
 
-The HTTP status code in the response reflects the overall health status (for example, `UP` maps to 200, while `OUT_OF_SERVICE` and `DOWN` map to 503).
+The HTTP status code in the response reflects the overall health status.
+By default, `OUT_OF_SERVICE` and `DOWN` map to 503.
+Any unmapped health statuses, including `UP`, map to 200.
 You might also want to register custom status mappings if you access the health endpoint over HTTP.
-For example, the following property maps `FATAL` to 503 (service unavailable):
+Configuring a custom mapping disables the defaults mappings for `DOWN` and `OUT_OF_SERVICE`.
+If you want to retain the default mappings they must be configured explicitly alongside any custom mappings.
+For example, the following property maps `FATAL` to 503 (service unavailable) and retains the default mappings for `DOWN` and `OUT_OF_SERVICE`:
 
 [source,properties,indent=0,configprops]
 ----
+	management.endpoint.health.status.http-mapping.down=503
 	management.endpoint.health.status.http-mapping.fatal=503
+	management.endpoint.health.status.http-mapping.out-of-service=503
 ----
 
 TIP: If you need more control, you can define your own `HttpCodeStatusMapper` bean.
@@ -864,7 +870,7 @@ It's also possible to override the `show-details` and `roles` properties if requ
 	management.endpoint.health.group.custom.roles=admin
 	management.endpoint.health.group.custom.status.order=fatal,up
 	management.endpoint.health.group.custom.status.http-mapping.fatal=500
-
+	management.endpoint.health.group.custom.status.http-mapping.out-of-service=500
 ----
 
 TIP: You can use `@Qualifier("groupname")` if you need to register custom `StatusAggregator` or `HttpCodeStatusMapper` beans for use with the group.
@@ -888,17 +894,23 @@ You can then configure your Kubernetes infrastructure with the following endpoin
 livenessProbe:
   httpGet:
     path: /actuator/health/liveness
-    port: liveness-port
+    port: <actuator-port>
   failureThreshold: ...
   periodSeconds: ...
 
 readinessProbe:
   httpGet:
     path: /actuator/health/readiness
-    port: liveness-port
+    port: <actuator-port>
   failureThreshold: ...
   periodSeconds: ...
 ----
+
+NOTE: `<actuator-port>` should be set to the port that the actuator endpoints are available on.
+It could be the main web server port, or a separate management port if the `"management.server.port"` property has been set.
+
+These health groups are only enabled automatically if the application is <<deployment.adoc#cloud-deployment-kubernetes,running in a Kubernetes environment>>.
+You can enable them in any environment using the configprop:management.health.probes.enabled[] configuration property.
 
 NOTE: If an application takes longer to start than the configured liveness period, Kubernetes mention the `"startupProbe"` as a possible solution.
 The `"startupProbe"` is not necessarily needed here as the `"readinessProbe"` fails until all startup tasks are done, see <<production-ready-features.adoc#production-ready-kubernetes-probes-lifecycle,how Probes behave during the application lifecycle>>.
@@ -1363,7 +1375,7 @@ TIP: To "`reset`" the specific level of the logger (and use the default configur
 
 [[production-ready-metrics]]
 == Metrics
-Spring Boot Actuator provides dependency management and auto-configuration for https://micrometer.io[Micrometer], an application metrics facade that supports numerous monitoring systems, including:
+Spring Boot Actuator provides dependency management and auto-configuration for https://micrometer.io[Micrometer], an application metrics facade that supports {micrometer-docs}[numerous monitoring systems], including:
 
 - <<production-ready-metrics-export-appoptics,AppOptics>>
 - <<production-ready-metrics-export-atlas,Atlas>>

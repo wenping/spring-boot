@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.BiPredicate;
 
 import org.springframework.boot.context.properties.source.ConfigurationPropertyName.Form;
 
@@ -57,7 +58,7 @@ final class SystemEnvironmentPropertyMapper implements PropertyMapper {
 		StringBuilder result = new StringBuilder();
 		for (int i = 0; i < numberOfElements; i++) {
 			if (result.length() > 0) {
-				result.append("_");
+				result.append('_');
 			}
 			result.append(name.getElement(i, Form.UNIFORM).toUpperCase(Locale.ENGLISH));
 		}
@@ -68,7 +69,7 @@ final class SystemEnvironmentPropertyMapper implements PropertyMapper {
 		StringBuilder result = new StringBuilder();
 		for (int i = 0; i < name.getNumberOfElements(); i++) {
 			if (result.length() > 0) {
-				result.append("_");
+				result.append('_');
 			}
 			result.append(convertLegacyNameElement(name.getElement(i, Form.ORIGINAL)));
 		}
@@ -103,7 +104,11 @@ final class SystemEnvironmentPropertyMapper implements PropertyMapper {
 	}
 
 	@Override
-	public boolean isAncestorOf(ConfigurationPropertyName name, ConfigurationPropertyName candidate) {
+	public BiPredicate<ConfigurationPropertyName, ConfigurationPropertyName> getAncestorOfCheck() {
+		return this::isAncestorOf;
+	}
+
+	private boolean isAncestorOf(ConfigurationPropertyName name, ConfigurationPropertyName candidate) {
 		return name.isAncestorOf(candidate) || isLegacyAncestorOf(name, candidate);
 	}
 
@@ -111,13 +116,19 @@ final class SystemEnvironmentPropertyMapper implements PropertyMapper {
 		if (!hasDashedEntries(name)) {
 			return false;
 		}
+		ConfigurationPropertyName legacyCompatibleName = buildLegacyCompatibleName(name);
+		return legacyCompatibleName != null && legacyCompatibleName.isAncestorOf(candidate);
+	}
+
+	private ConfigurationPropertyName buildLegacyCompatibleName(ConfigurationPropertyName name) {
 		StringBuilder legacyCompatibleName = new StringBuilder();
 		for (int i = 0; i < name.getNumberOfElements(); i++) {
-			legacyCompatibleName.append((i != 0) ? "." : "");
+			if (i != 0) {
+				legacyCompatibleName.append('.');
+			}
 			legacyCompatibleName.append(name.getElement(i, Form.DASHED).replace('-', '.'));
 		}
-		return ConfigurationPropertyName.isValid(legacyCompatibleName)
-				&& ConfigurationPropertyName.of(legacyCompatibleName).isAncestorOf(candidate);
+		return ConfigurationPropertyName.ofIfValid(legacyCompatibleName);
 	}
 
 	boolean hasDashedEntries(ConfigurationPropertyName name) {
